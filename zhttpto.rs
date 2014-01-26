@@ -74,17 +74,31 @@ fn main() {
                 stream.write(response.as_bytes());
             }
             else {
-                match File::open(&Path::new(request_str.slice(pa+1, th))) {
-                    Some(mut file) => {
-                        let contents = 
-                            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n".as_bytes() +
-                            file.read_to_end();
-                        stream.write(contents);
-                    },
-                    None => println!("Error reading file"),
+                if request_str.find_str(".html") == None {
+                    let forbidden: ~str = 
+                        ~"HTTP/1.1 418 I'm a teapot\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
+                         <doctype !html><html><head><title>Hello, Rust!</title>
+                         <style>body { background-color: #111; color: #FFEEAA }
+                                h1 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red}
+                         </style></head>
+                         <body>
+                         <h1>Error 418</h1>
+                         This server only accepts .html files!
+                         </body></html>\r\n";
+                    stream.write(forbidden.as_bytes());
+                }
+                else {
+                    match File::open(&Path::new(request_str.slice(pa+1, th))) {
+                        Some(mut file) => {
+                            let contents = 
+                                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n".as_bytes() +
+                                file.read_to_end();
+                            stream.write(contents);
+                        },
+                        None => println!("Error reading file"),
+                    }
                 }
             }
-
             println!("Connection terminates.");
         }
     }
