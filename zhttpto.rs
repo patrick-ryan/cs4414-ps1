@@ -45,21 +45,48 @@ fn main() {
             stream.read(buf);
             let request_str = str::from_utf8(buf);
             println(format!("Received request :\n{:s}", request_str));
-            unsafe { VISITOR_COUNT += 1 };
+            let pa = match request_str.find_str("/") {
+                Some(x) => x,
+                None => -1,
+            };
+            let th = match request_str.find_str(" HTTP") {
+                Some(x) => x,
+                None => -1,
+            };
             
-            let response: ~str = 
-                ~"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
-                 <doctype !html><html><head><title>Hello, Rust!</title>
-                 <style>body { background-color: #111; color: #FFEEAA }
-                        h1 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red}
-                        h2 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm green}
-                 </style></head>
-                 <body>
-                 <h1>Greetings, Krusty!</h1>" +
-                 format!("<h2>Number of visits: {:d}</h2>", unsafe { VISITOR_COUNT }) +
-                 "</body></html>\r\n";
-            stream.write(response.as_bytes());
+            if pa == -1 || th == -1 {
+                println!("Error parsing request");
+            }
+            else if (pa+1) == th {
+                unsafe { VISITOR_COUNT += 1 };
+    
+                let response: ~str = 
+                    ~"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
+                     <doctype !html><html><head><title>Hello, Rust!</title>
+                     <style>body { background-color: #111; color: #FFEEAA }
+                            h1 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red}
+                            h2 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm green}
+                     </style></head>
+                     <body>
+                     <h1>Greetings, Krusty!</h1>" +
+                     format!("<h2>Number of visits: {:d}</h2>", unsafe { VISITOR_COUNT }) +
+                     "</body></html>\r\n";
+                stream.write(response.as_bytes());
+            }
+            else {
+                match File::open(&Path::new(request_str.slice(pa+1, th))) {
+                    Some(mut file) => {
+                        let contents = 
+                            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n".as_bytes() +
+                            file.read_to_end();
+                        stream.write(contents);
+                    },
+                    None => println!("Error reading file"),
+                }
+            }
+
             println!("Connection terminates.");
         }
     }
 }
+
